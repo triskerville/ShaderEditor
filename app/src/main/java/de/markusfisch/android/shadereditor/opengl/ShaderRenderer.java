@@ -37,6 +37,8 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	public static final String UNIFORM_DAYTIME = "daytime";
 	public static final String UNIFORM_FRAME_NUMBER = "frame";
 	public static final String UNIFORM_FTIME = "ftime";
+	public static final String UNIFORM_FUSED_ORIENTATION = "fusedOrientation";
+	public static final String UNIFORM_FUSED_ROTATION_MATRIX = "fusedRotationMatrix";
 	public static final String UNIFORM_GRAVITY = "gravity";
 	public static final String UNIFORM_GYROSCOPE = "gyroscope";
 	public static final String UNIFORM_LAST_NOTIFICATION_TIME = "lastNotificationTime";

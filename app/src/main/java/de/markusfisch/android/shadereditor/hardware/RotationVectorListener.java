@@ -19,6 +19,12 @@ public class RotationVectorListener extends AbstractListener {
 				register(Sensor.TYPE_ROTATION_VECTOR);
 	}
 
+	// TYPE_ROTATION_VECTOR is referenced to magnetic north, so its azimuth
+	// is meaningful, unlike the one of TYPE_GAME_ROTATION_VECTOR.
+	public boolean registerGeomagnetic() {
+		return register(Sensor.TYPE_ROTATION_VECTOR);
+	}
+
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 		float x = event.values[0];

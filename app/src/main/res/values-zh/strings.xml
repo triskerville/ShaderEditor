@@ -131,6 +131,8 @@
 	<string name="device_orientation">设备的方位角、俯仰角和滚动角</string>
 	<string name="device_inclination">设备的地磁倾角（弧度）</string>
 	<string name="device_rotation_matrix">相对于世界坐标系的旋转矩阵</string>
+	<string name="fused_device_orientation">与 orientation 相同，但来自融合旋转矢量传感器（陀螺仪、加速度计和指南针），更平滑且不受晃动干扰</string>
+	<string name="fused_device_rotation_matrix">与 rotationMatrix 相同，但来自融合旋转矢量传感器（陀螺仪、加速度计和指南针），更平滑且不受晃动干扰</string>
 	<string name="device_rotation_vector">旋转矢量，表示设备围绕某轴旋转的角度组合</string>
 	<string name="device_inclination_matrix">将地磁矢量转换到重力坐标空间的旋转矩阵</string>
 	<string name="magnetic_field">沿 x, y, z 轴的地磁强度 (μT)</string>

@@ -23,6 +23,8 @@ final class BuiltinSensorUniforms {
 	private final float[] rotationMatrix = new float[9];
 	private final float[] inclinationMatrix = new float[9];
 	private final float[] orientation = new float[]{0, 0, 0};
+	private final float[] fusedRotationMatrix = new float[9];
+	private final float[] fusedOrientation = new float[]{0, 0, 0};
 	// Sensor values mapped into screen coordinates.
 	private final float[] screenGravity = new float[3];
 	private final float[] screenLinear = new float[3];
@@ -51,6 +53,8 @@ final class BuiltinSensorUniforms {
 	@Nullable
 	private RotationVectorListener rotationVectorListener;
 	@Nullable
+	private RotationVectorListener fusedRotationListener;
+	@Nullable
 	private float[] gravityValues;
 	@Nullable
 	private float[] linearValues;
@@ -66,6 +70,8 @@ final class BuiltinSensorUniforms {
 	private boolean hasOrientation;
 	private boolean hasInclinationMatrix;
 	private boolean hasInclination;
+	private boolean hasFusedRotationMatrix;
+	private boolean hasFusedOrientation;
 	private int deviceRotation;
 	@Nullable
 	private Display display;
@@ -97,6 +103,12 @@ final class BuiltinSensorUniforms {
 		hasInclination = device.hasUniform(
 				program,
 				ShaderRenderer.UNIFORM_INCLINATION);
+		hasFusedRotationMatrix = device.hasUniform(
+				program,
+				ShaderRenderer.UNIFORM_FUSED_ROTATION_MATRIX);
+		hasFusedOrientation = device.hasUniform(
+				program,
+				ShaderRenderer.UNIFORM_FUSED_ORIENTATION);
 
 		if (needsGravitySource()) {
 			if (gravityListener == null) {
@@ -179,6 +191,19 @@ final class BuiltinSensorUniforms {
 				rotationVectorListener = null;
 			}
 		}
+
+		if (usesFusedRotationUniforms()) {
+			if (fusedRotationListener == null) {
+				fusedRotationListener = new RotationVectorListener(context);
+			}
+			// Without a magnetometer, there's only the game rotation
+			// vector, whose azimuth is relative to where the device was
+			// pointing at start. Still better than nothing.
+			if (!fusedRotationListener.registerGeomagnetic() &&
+					!fusedRotationListener.register()) {
+				fusedRotationListener = null;
+			}
+		}
 	}
 
 	void setDeviceRotation(int deviceRotation) {
@@ -242,6 +267,9 @@ final class BuiltinSensorUniforms {
 		if (usesRotationUniforms()) {
 			bindRotationUniforms(bindings);
 		}
+		if (usesFusedRotationUniforms()) {
+			bindFusedRotationUniforms(bindings);
+		}
 	}
 
 	void release() {
@@ -284,11 +312,20 @@ final class BuiltinSensorUniforms {
 		if (rotationVectorListener != null) {
 			rotationVectorListener.unregister();
 		}
+
+		if (fusedRotationListener != null) {
+			fusedRotationListener.unregister();
+		}
 	}
 
 	private boolean usesMotionUniforms() {
 		return hasGravity || hasLinear || hasGyroscope || hasMagnetic ||
-				hasRotationVector || usesRotationUniforms();
+				hasRotationVector || usesRotationUniforms() ||
+				usesFusedRotationUniforms();
+	}
+
+	private boolean usesFusedRotationUniforms() {
+		return hasFusedRotationMatrix || hasFusedOrientation;
 	}
 
 	// The surface is not recreated when the display turns by 180 degrees
@@ -340,25 +377,7 @@ final class BuiltinSensorUniforms {
 			return;
 		}
 
-		if (deviceRotation != Surface.ROTATION_0) {
-			record AxisPair(int x, int y) {
-			}
-			@SuppressWarnings("SuspiciousNameCombination")
-			var rotation = switch (deviceRotation) {
-				case Surface.ROTATION_90 ->
-						new AxisPair(SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X);
-				case Surface.ROTATION_180 ->
-						new AxisPair(SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Y);
-				case Surface.ROTATION_270 ->
-						new AxisPair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X);
-				default -> new AxisPair(SensorManager.AXIS_X, SensorManager.AXIS_Y);
-			};
-			SensorManager.remapCoordinateSystem(
-					rotationMatrix,
-					rotation.x(),
-					rotation.y(),
-					rotationMatrix);
-		}
+		remapToScreen(rotationMatrix);
 
 		if (hasRotationMatrix) {
 			bindings.setMatrix3(
@@ -381,6 +400,54 @@ final class BuiltinSensorUniforms {
 					ShaderRenderer.UNIFORM_INCLINATION,
 					SensorManager.getInclination(inclinationMatrix));
 		}
+	}
+
+	// Like rotationMatrix and orientation, but from the fused rotation
+	// vector sensor (gyroscope + accelerometer + magnetometer), which is
+	// much smoother and isn't thrown off by shaking the device.
+	private void bindFusedRotationUniforms(@NonNull ProgramBindings bindings) {
+		if (fusedRotationListener == null) {
+			return;
+		}
+		SensorManager.getRotationMatrixFromVector(
+				fusedRotationMatrix,
+				fusedRotationListener.values);
+		remapToScreen(fusedRotationMatrix);
+		if (hasFusedRotationMatrix) {
+			bindings.setMatrix3(
+					ShaderRenderer.UNIFORM_FUSED_ROTATION_MATRIX,
+					true,
+					fusedRotationMatrix);
+		}
+		if (hasFusedOrientation) {
+			SensorManager.getOrientation(fusedRotationMatrix, fusedOrientation);
+			bindings.setFloat3(
+					ShaderRenderer.UNIFORM_FUSED_ORIENTATION,
+					fusedOrientation);
+		}
+	}
+
+	private void remapToScreen(@NonNull float[] matrix) {
+		if (deviceRotation == Surface.ROTATION_0) {
+			return;
+		}
+		record AxisPair(int x, int y) {
+		}
+		@SuppressWarnings("SuspiciousNameCombination")
+		var rotation = switch (deviceRotation) {
+			case Surface.ROTATION_90 ->
+					new AxisPair(SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X);
+			case Surface.ROTATION_180 ->
+					new AxisPair(SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Y);
+			case Surface.ROTATION_270 ->
+					new AxisPair(SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X);
+			default -> new AxisPair(SensorManager.AXIS_X, SensorManager.AXIS_Y);
+		};
+		SensorManager.remapCoordinateSystem(
+				matrix,
+				rotation.x(),
+				rotation.y(),
+				matrix);
 	}
 
 	@Nullable
