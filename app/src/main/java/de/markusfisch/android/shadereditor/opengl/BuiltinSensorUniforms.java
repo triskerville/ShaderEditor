@@ -2,7 +2,9 @@ package de.markusfisch.android.shadereditor.opengl;
 
 import android.content.Context;
 import android.hardware.SensorManager;
+import android.view.Display;
 import android.view.Surface;
+import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,6 +23,12 @@ final class BuiltinSensorUniforms {
 	private final float[] rotationMatrix = new float[9];
 	private final float[] inclinationMatrix = new float[9];
 	private final float[] orientation = new float[]{0, 0, 0};
+	// Sensor values mapped into screen coordinates.
+	private final float[] screenGravity = new float[3];
+	private final float[] screenLinear = new float[3];
+	private final float[] screenGyroscope = new float[3];
+	private final float[] screenMagnetic = new float[3];
+	private final float[] screenRotationVector = new float[4];
 	@NonNull
 	private final Context context;
 
@@ -59,6 +67,8 @@ final class BuiltinSensorUniforms {
 	private boolean hasInclinationMatrix;
 	private boolean hasInclination;
 	private int deviceRotation;
+	@Nullable
+	private Display display;
 
 	BuiltinSensorUniforms(@NonNull Context context) {
 		this.context = context;
@@ -176,21 +186,34 @@ final class BuiltinSensorUniforms {
 	}
 
 	void apply(@NonNull ProgramBindings bindings) {
+		if (usesMotionUniforms()) {
+			updateDeviceRotation();
+		}
 		if (hasGravity && gravityValues != null) {
-			bindings.setFloat3(ShaderRenderer.UNIFORM_GRAVITY, gravityValues);
+			SensorAxes.vectorToScreen(deviceRotation, gravityValues, screenGravity);
+			bindings.setFloat3(ShaderRenderer.UNIFORM_GRAVITY, screenGravity);
 		}
 		if (hasLinear && linearValues != null) {
-			bindings.setFloat3(ShaderRenderer.UNIFORM_LINEAR, linearValues);
+			SensorAxes.vectorToScreen(deviceRotation, linearValues, screenLinear);
+			bindings.setFloat3(ShaderRenderer.UNIFORM_LINEAR, screenLinear);
 		}
 		if (hasGyroscope && gyroscopeListener != null) {
+			SensorAxes.vectorToScreen(
+					deviceRotation,
+					gyroscopeListener.rotation,
+					screenGyroscope);
 			bindings.setFloat3(
 					ShaderRenderer.UNIFORM_GYROSCOPE,
-					gyroscopeListener.rotation);
+					screenGyroscope);
 		}
 		if (hasMagnetic && magneticFieldListener != null) {
+			SensorAxes.vectorToScreen(
+					deviceRotation,
+					magneticFieldListener.values,
+					screenMagnetic);
 			bindings.setFloat3(
 					ShaderRenderer.UNIFORM_MAGNETIC,
-					magneticFieldListener.values);
+					screenMagnetic);
 		}
 		if (hasLight && lightListener != null) {
 			bindings.setFloat(
@@ -208,9 +231,13 @@ final class BuiltinSensorUniforms {
 					proximityListener.getCentimeters());
 		}
 		if (hasRotationVector && rotationVectorListener != null) {
+			SensorAxes.quaternionToScreen(
+					deviceRotation,
+					rotationVectorListener.values,
+					screenRotationVector);
 			bindings.setFloat3(
 					ShaderRenderer.UNIFORM_ROTATION_VECTOR,
-					rotationVectorListener.values);
+					screenRotationVector);
 		}
 		if (usesRotationUniforms()) {
 			bindRotationUniforms(bindings);
@@ -257,6 +284,27 @@ final class BuiltinSensorUniforms {
 		if (rotationVectorListener != null) {
 			rotationVectorListener.unregister();
 		}
+	}
+
+	private boolean usesMotionUniforms() {
+		return hasGravity || hasLinear || hasGyroscope || hasMagnetic ||
+				hasRotationVector || usesRotationUniforms();
+	}
+
+	// The surface is not recreated when the display turns by 180 degrees
+	// (e.g. landscape to reverse landscape), so the rotation passed in
+	// setDeviceRotation() can go stale. Display caches its rotation, so
+	// polling it once per frame is cheap.
+	private void updateDeviceRotation() {
+		if (display == null) {
+			WindowManager windowManager = (WindowManager) context.getSystemService(
+					Context.WINDOW_SERVICE);
+			if (windowManager == null) {
+				return;
+			}
+			display = windowManager.getDefaultDisplay();
+		}
+		deviceRotation = display.getRotation();
 	}
 
 	private boolean needsGravitySource() {

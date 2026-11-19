@@ -40,7 +40,12 @@ public abstract class AbstractListener implements SensorEventListener {
 	}
 
 	boolean register(int type) {
-		if (listening || sensorManager == null || (sensor == null &&
+		if (listening) {
+			// Already running, e.g. the accelerometer feeding both the
+			// gravity and the linear acceleration fallback.
+			return true;
+		}
+		if (sensorManager == null || (sensor == null &&
 				(sensor = sensorManager.getDefaultSensor(type)) == null)) {
 			return false;
 		}
