@@ -8,6 +8,8 @@
 	<!-- Camera textures are only supported from API > 14 -->
 	<uses-permission android:name="android.permission.CAMERA"/>
 	<uses-permission android:name="android.permission.RECORD_AUDIO"/>
+	<!-- Needed for the "Fastest" sensor delay on Android 12+. -->
+	<uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"/>
 	<!-- Required below API 29 for importing shaders from Downloads -->
 	<uses-permission
 		android:name="android.permission.READ_EXTERNAL_STORAGE"

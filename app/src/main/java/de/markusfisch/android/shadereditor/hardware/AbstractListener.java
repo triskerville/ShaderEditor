@@ -51,8 +51,16 @@ public abstract class AbstractListener implements SensorEventListener {
 		}
 
 		last = 0;
-		listening = sensorManager.registerListener(this, sensor,
-				ShaderEditorApp.preferences.getSensorDelay());
+		int delay = ShaderEditorApp.preferences.getSensorDelay();
+		try {
+			listening = sensorManager.registerListener(this, sensor, delay);
+		} catch (SecurityException e) {
+			// Android 12+ throws for rates above 200 Hz without
+			// HIGH_SAMPLING_RATE_SENSORS, e.g. when the permission is
+			// disabled by policy. Fall back to the fastest allowed rate.
+			listening = sensorManager.registerListener(this, sensor,
+					SensorManager.SENSOR_DELAY_GAME);
+		}
 
 		return listening;
 	}
