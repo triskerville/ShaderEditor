@@ -133,6 +133,7 @@
 	<string name="device_rotation_matrix">相對於世界座標系統的旋轉矩陣</string>
 	<string name="fused_device_orientation">與 orientation 相同，但來自融合旋轉向量感測器（陀螺儀、加速度計和指南針），更平滑且不受晃動干擾</string>
 	<string name="fused_device_rotation_matrix">與 rotationMatrix 相同，但來自融合旋轉向量感測器（陀螺儀、加速度計和指南針），更平滑且不受晃動干擾</string>
+	<string name="motion_offset">快速移動裝置產生的短暫位移（公尺；x 向東，y 向北，z 向上），裝置停止移動後回到 0</string>
 	<string name="device_rotation_vector">旋轉向量，表示設備圍繞某軸旋轉的角度組合</string>
 	<string name="device_inclination_matrix">將地磁向量轉換到與重力相同的座標空間的旋轉矩陣</string>
 	<string name="magnetic_field">沿 x, y, z 軸的地磁強度 (μT)</string>

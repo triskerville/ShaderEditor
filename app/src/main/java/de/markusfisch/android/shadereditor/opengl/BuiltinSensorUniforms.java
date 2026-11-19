@@ -15,6 +15,7 @@ import de.markusfisch.android.shadereditor.hardware.GyroscopeListener;
 import de.markusfisch.android.shadereditor.hardware.LightListener;
 import de.markusfisch.android.shadereditor.hardware.LinearAccelerationListener;
 import de.markusfisch.android.shadereditor.hardware.MagneticFieldListener;
+import de.markusfisch.android.shadereditor.hardware.MotionOffsetListener;
 import de.markusfisch.android.shadereditor.hardware.PressureListener;
 import de.markusfisch.android.shadereditor.hardware.ProximityListener;
 import de.markusfisch.android.shadereditor.hardware.RotationVectorListener;
@@ -55,6 +56,8 @@ final class BuiltinSensorUniforms {
 	@Nullable
 	private RotationVectorListener fusedRotationListener;
 	@Nullable
+	private MotionOffsetListener motionOffsetListener;
+	@Nullable
 	private float[] gravityValues;
 	@Nullable
 	private float[] linearValues;
@@ -72,6 +75,7 @@ final class BuiltinSensorUniforms {
 	private boolean hasInclination;
 	private boolean hasFusedRotationMatrix;
 	private boolean hasFusedOrientation;
+	private boolean hasMotionOffset;
 	private int deviceRotation;
 	@Nullable
 	private Display display;
@@ -109,6 +113,9 @@ final class BuiltinSensorUniforms {
 		hasFusedOrientation = device.hasUniform(
 				program,
 				ShaderRenderer.UNIFORM_FUSED_ORIENTATION);
+		hasMotionOffset = device.hasUniform(
+				program,
+				ShaderRenderer.UNIFORM_MOTION_OFFSET);
 
 		if (needsGravitySource()) {
 			if (gravityListener == null) {
@@ -192,7 +199,7 @@ final class BuiltinSensorUniforms {
 			}
 		}
 
-		if (usesFusedRotationUniforms()) {
+		if (usesFusedRotationUniforms() || hasMotionOffset) {
 			if (fusedRotationListener == null) {
 				fusedRotationListener = new RotationVectorListener(context);
 			}
@@ -202,6 +209,18 @@ final class BuiltinSensorUniforms {
 			if (!fusedRotationListener.registerGeomagnetic() &&
 					!fusedRotationListener.register()) {
 				fusedRotationListener = null;
+			}
+		}
+
+		motionOffsetListener = null;
+		if (hasMotionOffset && fusedRotationListener != null) {
+			// Uses the same rotation as fusedRotationMatrix, so the offset
+			// lines up with a camera driven by it.
+			motionOffsetListener = new MotionOffsetListener(
+					context,
+					fusedRotationListener.values);
+			if (!motionOffsetListener.register()) {
+				motionOffsetListener = null;
 			}
 		}
 	}
@@ -270,6 +289,11 @@ final class BuiltinSensorUniforms {
 		if (usesFusedRotationUniforms()) {
 			bindFusedRotationUniforms(bindings);
 		}
+		if (hasMotionOffset && motionOffsetListener != null) {
+			bindings.setFloat3(
+					ShaderRenderer.UNIFORM_MOTION_OFFSET,
+					motionOffsetListener.offset);
+		}
 	}
 
 	void release() {
@@ -315,6 +339,10 @@ final class BuiltinSensorUniforms {
 
 		if (fusedRotationListener != null) {
 			fusedRotationListener.unregister();
+		}
+
+		if (motionOffsetListener != null) {
+			motionOffsetListener.unregister();
 		}
 	}
 

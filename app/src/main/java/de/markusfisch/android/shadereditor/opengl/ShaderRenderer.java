@@ -45,6 +45,7 @@ public class ShaderRenderer implements GLSurfaceView.Renderer {
 	public static final String UNIFORM_LIGHT = "light";
 	public static final String UNIFORM_LINEAR = "linear";
 	public static final String UNIFORM_MAGNETIC = "magnetic";
+	public static final String UNIFORM_MOTION_OFFSET = "motionOffset";
 	public static final String UNIFORM_MOUSE = "mouse";
 	public static final String UNIFORM_NIGHT_MODE = "nightMode";
 	public static final String UNIFORM_NOTIFICATION_COUNT = "notificationCount";
